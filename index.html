@@ -178,7 +178,8 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const out = [];
   const fuelNeedle = fuel.toLowerCase();
 
-  const priceLineRe = /^€\s*(\d+[.,]\d{3})\s*\/L$/i;
+  // zoek een prijs met 3 decimalen en €/L, spaties flexibel
+  const priceLineRe = /(\d+[.,]\d{3})\s*€\s*\/L/i;
   const fuelLineRe  = /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
   const postalRe    = /\b\d{4}\s+[A-ZÀ-Ü][A-Za-zÀ-ÖØ-öø-ÿ\- ]*$/;
 
