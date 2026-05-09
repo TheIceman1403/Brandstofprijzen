@@ -178,40 +178,22 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const out = [];
   const fuelNeedle = fuel.toLowerCase();
 
-  // zoek een prijs met 3 decimalen en €/L, spaties flexibel
-  const priceLineRe = /(\d+[.,]\d{3})\s*€\s*\/L/i;
-  const fuelLineRe  = /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
+  const fuelLineRe  =
+    /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
   const postalRe    = /\b\d{4}\s+[A-ZÀ-Ü][A-Za-zÀ-ÖØ-öø-ÿ\- ]*$/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // prijsregel "€ 1,799 /L"
-    const priceMatch = line.match(priceLineRe);
+    // zoek regel met brandstof + prijs, bv.
+    // "Super 95 (E10)1,799 €/LUpdate-datum: ..."
+    const priceMatch = line.match(/(\d+[.,]\d{3})\s*€\s*\/L/i);
     if (!priceMatch) continue;
+    if (!line.toLowerCase().includes(fuelNeedle)) continue;
+
     const price = parseFloat(priceMatch[1].replace(",", "."));
-
-    // brandstofregel in de buurt
-    let fuelLine = "";
-    for (let j = i - 3; j <= i + 3; j++) {
-      if (j < 0 || j >= lines.length) continue;
-      if (fuelLineRe.test(lines[j])) {
-        fuelLine = lines[j];
-        break;
-      }
-    }
-    if (!fuelLine) continue;
-    if (!fuelLine.toLowerCase().includes(fuelNeedle.split(" ")[0].toLowerCase())) continue;
-
-    // index van brandstofregel
-    let fuelIndex = i;
-    for (let j = i - 3; j <= i + 3; j++) {
-      if (j < 0 || j >= lines.length) continue;
-      if (lines[j] === fuelLine) {
-        fuelIndex = j;
-        break;
-      }
-    }
+    const fuelLine = (line.match(fuelLineRe)?.[1]) || fuel;
+    const fuelIndex = i;
 
     // naam + adres in regels boven fuelIndex
     let name = "";
@@ -225,8 +207,12 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
         continue;
       }
 
-      if (!name && !priceLineRe.test(l) && !fuelLineRe.test(l) &&
-          !postalRe.test(l) && !/^Diensten$/i.test(l) && l.length > 3) {
+      if (!name &&
+          !postalRe.test(l) &&
+          !/Update-datum/i.test(l) &&
+          !/^Diensten$/i.test(l) &&
+          !/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
+          l.length > 3) {
         name = l.replace(/^"+/, "").replace(/"+$/, "");
       }
     }
