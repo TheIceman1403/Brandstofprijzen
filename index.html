@@ -8,9 +8,9 @@
   <style>
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#08101a;color:#e5e7eb}
     .wrap{max-width:1100px;margin:0 auto;padding:16px}
-    .card{background:#0f172a;border:1px solid #22324a;border-radius:16px;padding:14px;margin-top:14px}
     h1{margin:4px 0 6px;font-size:1.5rem}
     .sub,.muted{color:#94a3b8}
+    .card{background:#0f172a;border:1px solid #22324a;border-radius:16px;padding:14px;margin-top:14px}
     .grid{display:grid;gap:12px}
     .g3{grid-template-columns:repeat(3,1fr)}
     .g2{grid-template-columns:repeat(2,1fr)}
@@ -56,6 +56,7 @@
           <option>Super 95 (E10)</option>
           <option>Super 95 (E5)</option>
           <option>Super 98 (E5)</option>
+          <option>Super 98 (E10)</option>
           <option>Diesel (B7)</option>
           <option>Diesel (B10)</option>
           <option>Diesel (XTL / HVO)</option>
@@ -131,7 +132,8 @@
 </div>
 
 <script>
-const WORKER_URL = "https://carbu-worker.bjorn-broeckx.workers.dev/";
+const WORKER_URL = "https://carbu-worker.bjorn-broeckx.workers.dev";
+
 const el = id => document.getElementById(id);
 let loc = null;
 let items = [];
@@ -160,9 +162,65 @@ async function loadData(){
   const url = `${WORKER_URL}/?region=${encodeURIComponent(region)}&fuel=${encodeURIComponent(fuel)}&tankcard=${encodeURIComponent(tankcard)}`;
   const r = await fetch(url);
   const j = await r.json();
-  if(!j.ok) throw new Error(j.error || "Worker error");
-  items = j.items || [];
+  if (!j.ok) throw new Error(j.error || "Worker error");
+
+  const html = j.html || "";
+  items = parseCarbuHtmlInBrowser(html, fuel, tankcard, j.sourceUrl);
   return j;
+}
+
+function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
+  const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
+
+  const out = [];
+  const fuelNeedle = fuel.toLowerCase();
+  const priceRe =
+    /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)[^\n]*?(\d+[.,]\d{3})\s*€?\s*\/?L?/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.toLowerCase().includes(fuelNeedle)) continue;
+
+    const m = line.match(priceRe);
+    if (!m) continue;
+
+    let name = "";
+    let addr = "";
+    let date = "";
+
+    for (let j = Math.max(0, i - 4); j <= Math.min(lines.length - 1, i + 4); j++) {
+      const l = lines[j];
+      if (!name && /^[A-Z0-9].{2,}$/.test(l) && !/\d+[.,]\d{3}/.test(l)) name = l;
+      if (!addr && /\d{4}\s/.test(l)) addr = l;
+      if (!date && /^\d{2}\/\d{2}\/\d{2}$/.test(l)) date = l;
+    }
+
+    const price = parseFloat(m[2].replace(",", "."));
+    const tankcard = /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
+
+    if (card === "yes" && !tankcard) continue;
+    if (card === "no" && tankcard) continue;
+
+    out.push({
+      name: name || "Onbekend station",
+      address: addr || "",
+      fuel: m[1],
+      price,
+      tankcard,
+      date,
+      sourceUrl
+    });
+  }
+
+  const seen = new Set();
+  return out.filter(x => {
+    const k = `${x.name}|${x.address}|${x.fuel}|${x.price}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 function applyFilters(){
@@ -181,7 +239,7 @@ function applyFilters(){
 
   list.sort((a,b)=>{
     if(sort==="distance"){
-      const ad=a.distance ?? 999999, bd=b.distance ?? 999999;
+      const ad = a.distance ?? 999999, bd = b.distance ?? 999999;
       return (ad-bd) || (a.price-b.price) || a.name.localeCompare(b.name);
     }
     return (a.price-b.price) || ((a.distance ?? 999999)-(b.distance ?? 999999)) || a.name.localeCompare(b.name);
@@ -245,6 +303,7 @@ el("geoBtn").onclick = () => {
 el("searchBtn").onclick = async () => {
   try {
     el("status").textContent = "Data laden...";
+    el("status").className = "status";
     const q = el("location").value.trim();
     if(q) loc = await geocode(q);
     const j = await loadData();
