@@ -169,6 +169,7 @@ async function loadData(){
   return j;
 }
 
+// BELANGRIJK: volledige parser
 function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
@@ -184,12 +185,12 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Zoek een prijsregel zoals "€ 1,799 /L"
+    // prijsregel "€ 1,799 /L"
     const priceMatch = line.match(priceLineRe);
     if (!priceMatch) continue;
     const price = parseFloat(priceMatch[1].replace(",", "."));
 
-    // Zoek brandstofregel in de buurt (boven of onder)
+    // brandstofregel in de buurt
     let fuelLine = "";
     for (let j = i - 3; j <= i + 3; j++) {
       if (j < 0 || j >= lines.length) continue;
@@ -199,14 +200,9 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
       }
     }
     if (!fuelLine) continue;
-    // Check dat het de gekozen brandstof is
     if (!fuelLine.toLowerCase().includes(fuelNeedle.split(" ")[0].toLowerCase())) continue;
 
-    // Zoek naam + adres 1–3 regels boven de brandstof
-    let name = "";
-    let addr = "";
-
-    // brandstofregel-index (kan net boven of onder prijs staan)
+    // index van brandstofregel
     let fuelIndex = i;
     for (let j = i - 3; j <= i + 3; j++) {
       if (j < 0 || j >= lines.length) continue;
@@ -216,27 +212,26 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
       }
     }
 
-    // naam/adres zitten in de regels vlak boven fuelIndex
+    // naam + adres in regels boven fuelIndex
+    let name = "";
+    let addr = "";
     for (let j = fuelIndex - 3; j < fuelIndex; j++) {
       if (j < 0 || j >= lines.length) continue;
       const l = lines[j];
 
-      // adreslijnen lijken op "...2070 Zwijndrecht" enz.
       if (!addr && postalRe.test(l)) {
         addr = l;
         continue;
       }
 
-      // naamlijn: geen prijs, geen brandstof, geen "Diensten", redelijke lengte
       if (!name && !priceLineRe.test(l) && !fuelLineRe.test(l) &&
           !postalRe.test(l) && !/^Diensten$/i.test(l) && l.length > 3) {
         name = l.replace(/^"+/, "").replace(/"+$/, "");
       }
     }
 
-    const tankcard = /Ja/.test(
-      lines.slice(i + 1, i + 5).join(" ")
-    ) || /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
+    const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
+      || /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
 
     if (card === "yes" && !tankcard) continue;
     if (card === "no" && tankcard) continue;
