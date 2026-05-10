@@ -169,11 +169,14 @@ async function loadData(){
   return j;
 }
 
-// BELANGRIJK: volledige parser
+// Parser die enkel het tabelgedeelte gebruikt en JS-regels overslaat
 function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
-  const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
+  const allLines = text.split("\n").map(s => s.trim()).filter(Boolean);
+
+  const startIndex = allLines.findIndex(l => l.startsWith("StationAdresBrandstofPrijsTankkaart"));
+  const lines = startIndex >= 0 ? allLines.slice(startIndex + 1) : allLines;
 
   const out = [];
   const fuelNeedle = fuel.toLowerCase();
@@ -185,8 +188,7 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // zoek regel met brandstof + prijs, bv.
-    // "Super 95 (E10)1,799 €/LUpdate-datum: ..."
+    // Regel met brandstof + prijs, bv. "Super 95 (E10)1,799 €/LUpdate-datum: ..."
     const priceMatch = line.match(/(\d+[.,]\d{3})\s*€\s*\/L/i);
     if (!priceMatch) continue;
     if (!line.toLowerCase().includes(fuelNeedle)) continue;
@@ -207,18 +209,18 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
         continue;
       }
 
-		if (!name &&
-			!postalRe.test(l) &&
-			!/Update-datum/i.test(l) &&
-			!/^Diensten$/i.test(l) &&
-			!/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
-			!/^\/\//.test(l) &&                 // geen commentregels
-			!/^\$?\s*\(/.test(l) &&             // geen jQuery/JS begin
-			!/function\s*\(/i.test(l) &&        // geen functie-definitie
-			!/;\s*$/.test(l) &&                 // geen regel eindigend op ;
-			l.length > 3) {
-		  name = l.replace(/^"+/, "").replace(/"+$/, "");
-		}
+      if (!name &&
+          !postalRe.test(l) &&
+          !/Update-datum/i.test(l) &&
+          !/^Diensten$/i.test(l) &&
+          !/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
+          !/^\/\//.test(l) &&              // geen comment
+          !/^\$?\s*\(/.test(l) &&          // geen jQuery/JS-begin
+          !/function\s*\(/i.test(l) &&     // geen functie
+          !/;\s*$/.test(l) &&              // geen regel eindigend op ;
+          l.length > 3) {
+        name = l.replace(/^"+/, "").replace(/"+$/, "");
+      }
     }
 
     const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
@@ -253,7 +255,8 @@ function applyFilters(){
   const gap = parseInt(el("gap").value,10)/100;
   const sort = el("sort").value;
 
-  let list = items.filter(x => !x.fuel || x.fuel.toLowerCase().includes(fuel.split(" ")[0].toLowerCase()));
+  // Worker levert al de juiste brandstof; filter is licht
+  let list = items.slice();
   if(tankcard !== "any") list = list.filter(x => tankcard === "yes" ? x.tankcard : !x.tankcard);
 
   if(loc) list = list.map(x => ({...x, distance: x.lat && x.lon ? haversine(loc.lat, loc.lon, x.lat, x.lon) : null}));
