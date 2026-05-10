@@ -207,14 +207,18 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
         continue;
       }
 
-      if (!name &&
-          !postalRe.test(l) &&
-          !/Update-datum/i.test(l) &&
-          !/^Diensten$/i.test(l) &&
-          !/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
-          l.length > 3) {
-        name = l.replace(/^"+/, "").replace(/"+$/, "");
-      }
+		if (!name &&
+			!postalRe.test(l) &&
+			!/Update-datum/i.test(l) &&
+			!/^Diensten$/i.test(l) &&
+			!/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
+			!/^\/\//.test(l) &&                 // geen commentregels
+			!/^\$?\s*\(/.test(l) &&             // geen jQuery/JS begin
+			!/function\s*\(/i.test(l) &&        // geen functie-definitie
+			!/;\s*$/.test(l) &&                 // geen regel eindigend op ;
+			l.length > 3) {
+		  name = l.replace(/^"+/, "").replace(/"+$/, "");
+		}
     }
 
     const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
