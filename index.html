@@ -206,69 +206,111 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
   const allLines = text.split("\n").map(s => s.trim()).filter(Boolean);
 
-  const startIndex = allLines.findIndex(l => l.startsWith("StationAdresBrandstofPrijsTankkaart"));
-  const lines = startIndex >= 0 ? allLines.slice(startIndex + 1) : allLines;
-
-  const out = [];
   const fuelNeedle = fuel.toLowerCase();
-
-  const fuelLineRe  =
+  const fuelRe =
     /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
-  const postalRe    = /\b\d{4}\s+[A-ZÀ-Ü][A-Za-zÀ-ÖØ-öø-ÿ\- ]*$/;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  const priceRe = /(\d+[.,]\d{3})\s*€\s*\/L/i;
 
-    const priceMatch = line.match(/(\d+[.,]\d{3})\s*€\s*\/L/i);
+  const postalRe = /\b\d{4}\s+[A-ZÀ-Ü][A-Za-zÀ-ÖØ-öø-ÿ\- ]*$/;
+
+  // 1) Splits in 'bovenste lijst' en 'tabelgedeelte'
+  const tableIndex = allLines.findIndex(l => l.startsWith("StationAdresBrandstofPrijsTankkaart"));
+  const headerLines = tableIndex >= 0 ? allLines.slice(0, tableIndex) : allLines;
+  const tableLines  = tableIndex >= 0 ? allLines.slice(tableIndex + 1) : [];
+
+  // 2) Bovenste lijst: mooie naam+adres per brandstof+prijs
+  const headerEntries = [];
+
+  for (let i = 0; i < headerLines.length; i++) {
+    const line = headerLines[i];
+
+    // zoek regels met prijs en brandstof
+    const priceMatch = line.match(priceRe);
     if (!priceMatch) continue;
     if (!line.toLowerCase().includes(fuelNeedle)) continue;
 
+    const fuelMatch = line.match(fuelRe);
+    const fuelLine = fuelMatch ? fuelMatch[1] : fuel;
     const price = parseFloat(priceMatch[1].replace(",", "."));
-    const fuelLine = (line.match(fuelLineRe)?.[1]) || fuel;
-    const fuelIndex = i;
 
-    let name = "";
-    let addr = "";
-    for (let j = fuelIndex - 3; j < fuelIndex; j++) {
-      if (j < 0 || j >= lines.length) continue;
-      const l = lines[j];
-
-      if (!addr && postalRe.test(l)) {
-        addr = l;
-        continue;
-      }
-
-      if (!name &&
-          !postalRe.test(l) &&
-          !/Update-datum/i.test(l) &&
-          !/^Diensten$/i.test(l) &&
-          !/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
-          !/^\/\//.test(l) &&
-          !/^\$?\s*\(/.test(l) &&
-          !/function\s*\(/i.test(l) &&
-          !/;\s*$/.test(l) &&
-          l.length > 3) {
-        name = l.replace(/^"+/, "").replace(/"+$/, "");
-      }
+    // naam+adres in de regels ervoor zoeken
+    let nameAddr = "";
+    for (let j = i - 3; j < i; j++) {
+      if (j < 0 || j >= headerLines.length) continue;
+      const l = headerLines[j];
+      if (!l) continue;
+      if (/Update-datum/i.test(l) || /^Diensten$/i.test(l)) continue;
+      if (priceRe.test(l)) continue;
+      if (/^\/\//.test(l) || /^\$?\s*\(/.test(l) || /function\s*\(/i.test(l) || /;\s*$/.test(l)) continue;
+      nameAddr = l;
     }
 
-    const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
+    if (!nameAddr) continue;
+
+    headerEntries.push({
+      fuel: fuelLine,
+      price,
+      nameAddr
+    });
+  }
+
+  // 3) Tabelgedeelte: tankkaart + extra bevestiging
+  const tableEntries = [];
+  for (let i = 0; i < tableLines.length; i++) {
+    const line = tableLines[i];
+
+    const priceMatch = line.match(priceRe);
+    if (!priceMatch) continue;
+    if (!line.toLowerCase().includes(fuelNeedle)) continue;
+
+    const fuelMatch = line.match(fuelRe);
+    const fuelLine = fuelMatch ? fuelMatch[1] : fuel;
+    const price = parseFloat(priceMatch[1].replace(",", "."));
+
+    // tankkaart-info in de regels erna
+    const tankcard = /Ja/.test(tableLines.slice(i + 1, i + 5).join(" "))
       || /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
 
-    if (card === "yes" && !tankcard) continue;
-    if (card === "no" && tankcard) continue;
+    tableEntries.push({
+      fuel: fuelLine,
+      price,
+      tankcard
+    });
+  }
+
+  // 4) Combineer: zoek voor elke tabelrij de beste match uit headerEntries (zelfde prijs en brandstof)
+  const out = [];
+
+  for (const row of tableEntries) {
+    const candidates = headerEntries.filter(h =>
+      h.fuel.toLowerCase() === row.fuel.toLowerCase() &&
+      Math.abs(h.price - row.price) < 0.0005
+    );
+
+    // neem eerste kandidaat of fallback
+    const nameAddr = candidates.length ? candidates[0].nameAddr : "Onbekend station";
+
+    // splits naam+adres grofweg: laatste regel met postcode wordt adres, rest naam
+    let name = nameAddr;
+    let addr = "";
+    if (postalRe.test(nameAddr)) {
+      addr = nameAddr;
+      name = "";
+    }
 
     out.push({
       name: name || "Onbekend station",
-      address: addr || "",
-      fuel: fuelLine,
-      price,
-      tankcard,
+      address: addr,
+      fuel: row.fuel,
+      price: row.price,
+      tankcard: row.tankcard,
       date: "",
       sourceUrl
     });
   }
 
+  // 5) Dubbels weg
   const seen = new Set();
   return out.filter(x => {
     const k = `${x.name}|${x.address}|${x.fuel}|${x.price}`;
