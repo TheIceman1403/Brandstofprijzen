@@ -154,6 +154,16 @@ async function geocode(q){
   return {lat:+j[0].lat, lon:+j[0].lon, label:j[0].display_name};
 }
 
+// Extra: geocode per stationadres
+async function geocodeAddress(addr) {
+  const r = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(addr), {
+    headers: { "Accept": "application/json" }
+  });
+  const j = await r.json();
+  if (!j.length) return null;
+  return { lat: +j[0].lat, lon: +j[0].lon };
+}
+
 async function loadData(){
   const region = el("location").value.trim() || "Antwerpen";
   const fuel = el("fuel").value;
@@ -166,10 +176,31 @@ async function loadData(){
 
   const html = j.html || "";
   items = parseCarbuHtmlInBrowser(html, fuel, tankcard, j.sourceUrl);
+
+  // vul coördinaten en afstand voor max 20 stations
+  if (loc && items.length) {
+    const slice = items.slice(0, 20);
+    for (let i = 0; i < slice.length; i++) {
+      const it = slice[i];
+      const queryAddr = it.address || it.name;
+      if (!queryAddr) continue;
+      try {
+        const geo = await geocodeAddress(queryAddr);
+        if (geo) {
+          it.lat = geo.lat;
+          it.lon = geo.lon;
+          it.distance = haversine(loc.lat, loc.lon, geo.lat, geo.lon);
+        }
+      } catch(e) {
+        // stil falen
+      }
+    }
+  }
+
   return j;
 }
 
-// Parser die enkel het tabelgedeelte gebruikt en JS-regels overslaat
+// Parser die tabelgedeelte gebruikt
 function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
@@ -188,7 +219,6 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Regel met brandstof + prijs, bv. "Super 95 (E10)1,799 €/LUpdate-datum: ..."
     const priceMatch = line.match(/(\d+[.,]\d{3})\s*€\s*\/L/i);
     if (!priceMatch) continue;
     if (!line.toLowerCase().includes(fuelNeedle)) continue;
@@ -197,7 +227,6 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
     const fuelLine = (line.match(fuelLineRe)?.[1]) || fuel;
     const fuelIndex = i;
 
-    // naam + adres in regels boven fuelIndex
     let name = "";
     let addr = "";
     for (let j = fuelIndex - 3; j < fuelIndex; j++) {
@@ -214,10 +243,10 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
           !/Update-datum/i.test(l) &&
           !/^Diensten$/i.test(l) &&
           !/\d+[.,]\d{3}\s*€\s*\/L/i.test(l) &&
-          !/^\/\//.test(l) &&              // geen comment
-          !/^\$?\s*\(/.test(l) &&          // geen jQuery/JS-begin
-          !/function\s*\(/i.test(l) &&     // geen functie
-          !/;\s*$/.test(l) &&              // geen regel eindigend op ;
+          !/^\/\//.test(l) &&
+          !/^\$?\s*\(/.test(l) &&
+          !/function\s*\(/i.test(l) &&
+          !/;\s*$/.test(l) &&
           l.length > 3) {
         name = l.replace(/^"+/, "").replace(/"+$/, "");
       }
@@ -250,16 +279,17 @@ function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
 }
 
 function applyFilters(){
-  const fuel = el("fuel").value;
   const tankcard = el("tankcard").value;
   const gap = parseInt(el("gap").value,10)/100;
   const sort = el("sort").value;
 
-  // Worker levert al de juiste brandstof; filter is licht
   let list = items.slice();
   if(tankcard !== "any") list = list.filter(x => tankcard === "yes" ? x.tankcard : !x.tankcard);
 
-  if(loc) list = list.map(x => ({...x, distance: x.lat && x.lon ? haversine(loc.lat, loc.lon, x.lat, x.lon) : null}));
+  if(loc) list = list.map(x => ({
+    ...x,
+    distance: x.distance ?? (x.lat && x.lon ? haversine(loc.lat, loc.lon, x.lat, x.lon) : null)
+  }));
 
   const minPrice = list.length ? Math.min(...list.map(x => x.price)) : null;
   if(minPrice !== null) list = list.filter(x => x.price <= minPrice + gap);
@@ -306,7 +336,9 @@ function render(){
         <div>
           <div class="name">${x.name || "Onbekend station"}</div>
           <div class="addr">${x.address || ""}</div>
-          <div class="small" style="margin-top:6px">${x.fuel || ""}${x.distance==null ? "" : " · " + fmtKm(x.distance)}</div>
+          <div class="small" style="margin-top:6px">
+            ${x.fuel || ""}${x.distance==null ? "" : " · " + fmtKm(x.distance)}
+          </div>
         </div>
         <div class="price">${fmtPrice(x.price)}</div>
       </div>
