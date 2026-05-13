@@ -41,3 +41,310 @@
 </head>
 <body>
 <div class="wrap">
+  <h1>Goedkoop tanken</h1>
+  <p class="sub">GitHub Pages frontend met live CARBU-data via Cloudflare Worker.</p>
+
+  <div class="card">
+    <div class="grid g2">
+      <div>
+        <label for="location">Locatie</label>
+        <input id="location" placeholder="Bijv. Merksem, Antwerpen" />
+      </div>
+      <div>
+        <label for="fuel">Brandstof</label>
+        <select id="fuel">
+          <option>Super 95 (E10)</option>
+          <option>Super 95 (E5)</option>
+          <option>Super 98 (E5)</option>
+          <option>Super 98 (E10)</option>
+          <option>Diesel (B7)</option>
+          <option>Diesel (B10)</option>
+          <option>Diesel (XTL / HVO)</option>
+          <option>Diesel+</option>
+          <option>LPG</option>
+          <option>CNG</option>
+          <option>Hydrogeen</option>
+          <option>LNG</option>
+          <option>AdBlue</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:12px">
+      <div>
+        <label for="tankcard">Tankkaart</label>
+        <select id="tankcard">
+          <option value="any">Maakt niet uit</option>
+          <option value="yes">Ja</option>
+          <option value="no">Nee</option>
+        </select>
+      </div>
+      <div>
+        <label for="gap">Prijsverschil</label>
+        <select id="gap">
+          <option value="0">0 cent</option>
+          <option value="2">2 cent</option>
+          <option value="5">5 cent</option>
+          <option value="10">10 cent</option>
+        </select>
+      </div>
+      <div>
+        <label for="sort">Sorteren</label>
+        <select id="sort">
+          <option value="price">Prijs laag-hoog</option>
+          <option value="distance">Afstand laag-hoog</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:12px">
+      <button class="btn secondary" id="geoBtn">Gebruik mijn locatie</button>
+      <button class="btn primary" id="searchBtn">Zoek</button>
+    </div>
+
+    <div id="meta"></div>
+    <div class="status" id="status"></div>
+    <div class="muted" style="margin-top:10px">
+      Worker-URL instellen in de code. Als de browser de locatie of fetch blokkeert, open via HTTPS.
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="summary" class="muted">Nog geen resultaat.</div>
+    <div id="cards"></div>
+    <div style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Station</th>
+            <th>Adres</th>
+            <th>Brandstof</th>
+            <th class="right">Prijs</th>
+            <th>Tankkaart</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="5" class="muted">Geen data.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = "https://carbu-worker.bjorn-broeckx.workers.dev";
+
+const el = id => document.getElementById(id);
+let loc = null;
+let items = [];
+
+function haversine(aLat,aLon,bLat,bLon){
+  const R=6371, dLat=(bLat-aLat)*Math.PI/180, dLon=(bLon-aLon)*Math.PI/180;
+  const la1=aLat*Math.PI/180, la2=bLat*Math.PI/180;
+  const x=Math.sin(dLat/2)**2 + Math.cos(la1)*cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function cos(x){return Math.cos(x);}
+function fmtPrice(v){ return "€ " + v.toFixed(3).replace(".", ",") + " /L"; }
+function fmtKm(v){ return v.toFixed(2).replace(".", ",") + " km"; }
+
+async function geocode(q){
+  const r = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="+encodeURIComponent(q), {headers:{Accept:"application/json"}});
+  const j = await r.json();
+  if(!j.length) throw new Error("Locatie niet gevonden");
+  return {lat:+j[0].lat, lon:+j[0].lon, label:j[0].display_name};
+}
+
+async function geocodeAddress(addr) {
+  const r = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(addr), {
+    headers: { "Accept": "application/json" }
+  });
+  const j = await r.json();
+  if (!j.length) return null;
+  return { lat: +j[0].lat, lon: +j[0].lon };
+}
+
+async function loadData(){
+  const region = el("location").value.trim() || "Antwerpen";
+  const fuel = el("fuel").value;
+  const tankcard = el("tankcard").value;
+
+  const url = `${WORKER_URL}/?region=${encodeURIComponent(region)}&fuel=${encodeURIComponent(fuel)}&tankcard=${encodeURIComponent(tankcard)}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "Worker error");
+
+  const html = j.html || "";
+  items = parseCarbuHtmlInBrowser(html, fuel, tankcard, j.sourceUrl);
+
+  // coord + afstand voor max 20 stations
+  if (loc && items.length) {
+    const slice = items.slice(0, 20);
+    for (let i = 0; i < slice.length; i++) {
+      const it = slice[i];
+      const queryAddr = it.address || it.name;
+      if (!queryAddr) continue;
+      try {
+        const geo = await geocodeAddress(queryAddr);
+        if (geo) {
+          it.lat = geo.lat;
+          it.lon = geo.lon;
+          it.distance = haversine(loc.lat, loc.lon, geo.lat, geo.lon);
+        }
+      } catch(e) {}
+    }
+  }
+
+  return j;
+}
+
+// Parser alleen op tabelgedeelte
+function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
+  const allLines = text.split("\n").map(s => s.trim()).filter(Boolean);
+
+  const fuelNeedle = fuel.toLowerCase();
+  const fuelRe =
+    /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
+  const priceRe = /(\d+[.,]\d{3})\s*€\s*\/L/i;
+
+  const tableIndex = allLines.findIndex(l => l.startsWith("StationAdresBrandstofPrijsTankkaart"));
+  const lines = tableIndex >= 0 ? allLines.slice(tableIndex + 1) : allLines;
+
+  const out = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const priceMatch = line.match(priceRe);
+    if (!priceMatch) continue;
+    if (!line.toLowerCase().includes(fuelNeedle)) continue;
+
+    const price = parseFloat(priceMatch[1].replace(",", "."));
+    const fuelMatch = line.match(fuelRe);
+    const fuelLine = fuelMatch ? fuelMatch[1] : fuel;
+
+    const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
+      || /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
+
+    out.push({
+      name: "Onbekend station",
+      address: "",
+      fuel: fuelLine,
+      price,
+      tankcard,
+      date: "",
+      sourceUrl
+    });
+  }
+
+  const seen = new Set();
+  return out.filter(x => {
+    const k = `${x.fuel}|${x.price}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+function applyFilters(){
+  const tankcard = el("tankcard").value;
+  const gap = parseInt(el("gap").value,10)/100;
+  const sort = el("sort").value;
+
+  let list = items.slice();
+  if(tankcard !== "any") list = list.filter(x => tankcard === "yes" ? x.tankcard : !x.tankcard);
+
+  if(loc) list = list.map(x => ({
+    ...x,
+    distance: x.distance ?? (x.lat && x.lon ? haversine(loc.lat, loc.lon, x.lat, x.lon) : null)
+  }));
+
+  const minPrice = list.length ? Math.min(...list.map(x => x.price)) : null;
+  if(minPrice !== null) list = list.filter(x => x.price <= minPrice + gap);
+
+  list.sort((a,b)=>{
+    if(sort==="distance"){
+      const ad = a.distance ?? 999999, bd = b.distance ?? 999999;
+      return (ad-bd) || (a.price-b.price) || a.name.localeCompare(b.name);
+    }
+    return (a.price-b.price) || ((a.distance ?? 999999)-(b.distance ?? 999999)) || a.name.localeCompare(b.name);
+  });
+
+  return {list, minPrice};
+}
+
+function render(){
+  const {list, minPrice} = applyFilters();
+  const fuel = el("fuel").value;
+
+  el("meta").innerHTML = [
+    loc ? `<span class="chip">Locatie: ${loc.label}</span>` : "",
+    `<span class="chip">Brandstof: ${fuel}</span>`,
+    `<span class="chip">Tolerantie: ${el("gap").value} cent</span>`,
+    `<span class="chip">Sortering: ${el("sort").value}</span>`
+  ].join("");
+
+  el("summary").textContent = list.length
+    ? `${list.length} resultaten${minPrice !== null ? ", goedkoopste: " + fmtPrice(minPrice) : ""}`
+    : "Geen resultaten.";
+
+  el("rows").innerHTML = list.length ? list.map(x => `
+    <tr>
+      <td><strong>${x.name || ""}</strong></td>
+      <td>${x.address || ""}</td>
+      <td>${x.fuel || ""}</td>
+      <td class="right">${fmtPrice(x.price)}</td>
+      <td>${x.tankcard ? "Ja" : "Nee"}</td>
+    </tr>
+  `).join("") : `<tr><td colspan="5" class="muted">Geen resultaten.</td></tr>`;
+
+  el("cards").innerHTML = list.map(x => `
+    <div class="item">
+      <div class="itemmain">
+        <div>
+          <div class="name">${x.name || "Onbekend station"}</div>
+          <div class="addr">${x.address || ""}</div>
+          <div class="small" style="margin-top:6px">
+            ${x.fuel || ""}${x.distance==null ? "" : " · " + fmtKm(x.distance)}
+          </div>
+        </div>
+        <div class="price">${fmtPrice(x.price)}</div>
+      </div>
+      <div class="actions">
+        <a href="${x.sourceUrl}" target="_blank" rel="noopener">Meer informatie</a>
+        <a href="${x.sourceUrl}" target="_blank" rel="noopener">Station</a>
+        <a href="https://www.google.com/maps?q=${encodeURIComponent(x.address || x.name || "")}" target="_blank" rel="noopener">GPS</a>
+      </div>
+    </div>
+  `).join("");
+}
+
+el("geoBtn").onclick = () => {
+  navigator.geolocation.getCurrentPosition(
+    p => { loc = {lat:p.coords.latitude, lon:p.coords.longitude, label:"huidige locatie"}; el("status").textContent = "Locatie ingesteld."; render(); },
+    () => { el("status").textContent = "Locatie geweigerd of niet beschikbaar."; el("status").className = "status error"; },
+    {enableHighAccuracy:true, timeout:12000, maximumAge:60000}
+  );
+};
+
+el("searchBtn").onclick = async () => {
+  try {
+    el("status").textContent = "Data laden...";
+    el("status").className = "status";
+    const q = el("location").value.trim();
+    if(q) loc = await geocode(q);
+    const j = await loadData();
+    el("status").textContent = "Live data geladen.";
+    render();
+  } catch(e) {
+    el("status").textContent = e.message;
+    el("status").className = "status error";
+  }
+};
+
+["fuel","tankcard","gap","sort"].forEach(id => el(id).addEventListener("change", render));
+</script>
+</body>
+</html>
