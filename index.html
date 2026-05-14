@@ -297,7 +297,7 @@
     <section class="controls">
       <div class="field">
         <label for="locationInput">Locatie</label>
-        <input id="locationInput" type="text" placeholder="Korte Bremstraat Merksem">
+        <input id="locationInput" type="text" placeholder="Korte Bremstraat Merksem" value="korte bremstraat merksem">
       </div>
 
       <div class="field">
@@ -313,8 +313,8 @@
         <label for="toleranceSelect">Prijsverschil</label>
         <select id="toleranceSelect">
           <option value="0.01">1 cent</option>
-          <option value="0.02" selected>2 cent</option>
-          <option value="0.03">3 cent</option>
+          <option value="0.02">2 cent</option>
+          <option value="0.03" selected>3 cent</option>
           <option value="0.05">5 cent</option>
         </select>
       </div>
@@ -344,7 +344,7 @@
 
   <script>
     // === CONFIG ===
-    const WORKER_URL = 'https://carbu-worker.bjorn-broeckx.workers.dev'; // <-- aanpassen
+    const WORKER_URL = 'https://carbu-worker.bjorn-broeckx.workers.dev';
 
     // === DOM ELEMENTS ===
     const locationInput = document.getElementById('locationInput');
@@ -399,37 +399,43 @@
       });
     }
 
-    // === PARSER ===
-    // LET OP: selectors moeten overeenkomen met de HTML die je Worker van CARBU terugstuurt. [web:160][web:162]
-    function parseStationsFromCarbu(html, selectedFuelLabel) {
+    // === PARSER VOOR JE WORKER-RESP ===
+    // Worker geeft JSON: { ok, fuel, html, ... } [page:1]
+    function parseStationsFromWorkerJson(data, selectedFuelLabel) {
+      const html = data.html || '';
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      const stationCards = Array.from(doc.querySelectorAll('.station')); // selector checken
+
+      // Elke stationItem panel panel-default blok = één station [page:1]
+      const stationCards = Array.from(
+        doc.querySelectorAll('.stationItem.panel.panel-default')
+      );
+
       const stations = [];
 
       stationCards.forEach(card => {
-        const nameEl = card.querySelector('.station-name');
-        const addrEl = card.querySelector('.station-address');
+        const text = card.innerText.replace(/\s+/g, ' ').trim();
 
-        const name = nameEl ? nameEl.textContent.trim() : 'Onbekend station';
-        const address = addrEl ? addrEl.textContent.trim() : '';
+        // Naam tussen ** ... **
+        const nameMatch = text.match(/\*\*\s*(.+?)\s*\*\*/);
+        const name = nameMatch ? nameMatch[1].trim() : 'Onbekend station';
 
-        const fuelRows = Array.from(card.querySelectorAll('.fuel-row'));
-        const matchingFuelRow = fuelRows.find(row => {
-          const label = row.querySelector('.fuel-label');
-          return label && label.textContent.includes(selectedFuelLabel);
-        });
+        // Adres: "83 Paleisstraat 2000 Antwerpen" -> nummer+straat + postcode+stad
+        const addressMatch = text.match(/(\d+\s+[^\d]+?)\s+(\d{4}\s+[A-Za-zÀ-ÿ ]+)/);
+        const address = addressMatch ? (addressMatch[1] + ', ' + addressMatch[2]).trim() : '';
 
-        if (!matchingFuelRow) return;
+        // Brandstof + prijs, bv. "Super 95 (E10) 1,813 €/L"
+        const escapedFuel = selectedFuelLabel.replace(/[()]/g, '\\$&');
+        const fuelRegex = new RegExp(escapedFuel + '\\s+([0-9],[0-9]{3})\\s*€/L');
+        const fuelMatch = text.match(fuelRegex);
+        const price = fuelMatch ? parseFloat(fuelMatch[1].replace(',', '.')) : null;
 
-        const priceEl = matchingFuelRow.querySelector('.fuel-price');
-        const priceText = priceEl ? priceEl.textContent.replace(/[^\d,.,,]/g, '') : '';
-        const price = priceText ? parseFloat(priceText.replace(',', '.')) : null;
+        // Tankkaart-informatie staat niet duidelijk in deze HTML; voorlopig false
+        const hasFuelCard = false;
 
-        const cardEl = matchingFuelRow.querySelector('.fuel-card');
-        const hasFuelCard = cardEl ? /ja/i.test(cardEl.textContent) : false;
-
-        const lat = card.dataset.lat ? parseFloat(card.dataset.lat) : null;
-        const lon = card.dataset.lon ? parseFloat(card.dataset.lon) : null;
+        // GPS: "GPS 51.206143,4.398287"
+        const gpsMatch = text.match(/GPS[^0-9]*([0-9]+\.[0-9]+)\s*,\s*([0-9]+\.[0-9]+)/i);
+        const lat = gpsMatch ? parseFloat(gpsMatch[1]) : null;
+        const lon = gpsMatch ? parseFloat(gpsMatch[2]) : null;
 
         stations.push({
           name,
@@ -498,9 +504,9 @@
       });
     }
 
-    // === GEOLOCATIE / GEOCODING ===
+    // === GEOLOCATIE / GEOCODING (optioneel uit te breiden) ===
     async function geocodeLocation(query) {
-      // hier kun je eventueel je Worker/Nominatim aanspreken om lat/lon uit adres te halen [web:35][web:158]
+      // Later kun je hier Nominatim of een andere service via je Worker aanroepen [web:35][web:158]
       return null;
     }
 
@@ -526,9 +532,13 @@
         if (!resp.ok) {
           throw new Error('Worker gaf een fout terug');
         }
-        const html = await resp.text();
 
-        const stations = parseStationsFromCarbu(html, fuelLabel);
+        const data = await resp.json(); // Worker antwoordt met JSON [page:1]
+        if (!data.ok) {
+          throw new Error('Worker-resultaat is niet ok');
+        }
+
+        const stations = parseStationsFromWorkerJson(data, fuelLabel);
         addDistances(stations, originLat, originLon);
         currentStations = stations;
 
@@ -581,6 +591,9 @@
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
+
+    // optioneel: auto-zoek bij eerste load
+    // window.addEventListener('load', () => zoekStations());
   </script>
 </body>
 </html>
