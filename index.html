@@ -1,350 +1,586 @@
 <!doctype html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
+  <meta charset="utf-8">
   <title>Goedkoop tanken</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#08101a;color:#e5e7eb}
-    .wrap{max-width:1100px;margin:0 auto;padding:16px}
-    h1{margin:4px 0 6px;font-size:1.5rem}
-    .sub,.muted{color:#94a3b8}
-    .card{background:#0f172a;border:1px solid #22324a;border-radius:16px;padding:14px;margin-top:14px}
-    .grid{display:grid;gap:12px}
-    .g3{grid-template-columns:repeat(3,1fr)}
-    .g2{grid-template-columns:repeat(2,1fr)}
-    @media(max-width:800px){.g2,.g3{grid-template-columns:1fr}}
-    label{display:block;margin-bottom:6px;color:#cbd5e1;font-size:.9rem}
-    input,select,button{width:100%;padding:12px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e5e7eb;font-size:1rem}
-    button{cursor:pointer;font-weight:700}
-    .btnrow{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{flex:1 1 180px}
-    .primary{background:linear-gradient(135deg,#22c55e,#16a34a);border-color:#15803d;color:#02130a}
-    .secondary{background:linear-gradient(135deg,#38bdf8,#0284c7);border-color:#0ea5e9;color:#041018}
-    .chip{display:inline-block;margin:6px 6px 0 0;padding:6px 10px;border-radius:999px;background:#1f2a3d;border:1px solid #22324a;color:#cbd5e1;font-size:.88rem}
-    .status{margin-top:10px}
-    .error{color:#fca5a5}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:10px 8px;border-bottom:1px solid #22324a;text-align:left;vertical-align:top}
-    th{color:#cbd5e1;background:#0f172a}
-    .right{text-align:right}
-    .item{background:#111c31;border:1px solid #22324a;border-radius:14px;overflow:hidden;margin-top:10px}
-    .itemmain{display:grid;grid-template-columns:1fr 150px;gap:12px;padding:14px}
-    .name{font-weight:800}
-    .addr,.small{color:#94a3b8;font-size:.92rem}
-    .price{text-align:right;font-size:1.15rem;font-weight:900}
-    .actions{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #22324a}
-    .actions a{padding:12px;text-align:center;color:#7dd3fc;text-decoration:none;border-right:1px solid #22324a}
-    .actions a:last-child{border-right:none}
+    :root {
+      --bg: #050816;
+      --bg-alt: #0b1020;
+      --card-bg: #0f172a;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.1);
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --border: #1f2937;
+      --radius: 10px;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+      --transition: 160ms ease-out;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: radial-gradient(circle at top, #1f2937 0, var(--bg) 40%, #020617 100%);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    .page-header h1 {
+      margin: 0 0 4px;
+      font-size: 1.9rem;
+      letter-spacing: 0.02em;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .controls {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.88));
+      border: 1px solid rgba(148,163,184,0.14);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px 16px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.075em;
+      color: var(--text-muted);
+    }
+
+    input,
+    select {
+      padding: 7px 9px;
+      border-radius: 7px;
+      border: 1px solid rgba(31,41,55,0.9);
+      background: rgba(15,23,42,0.96);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(56,189,248,0.9);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.55);
+      background: rgba(15,23,42,1);
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      background: rgba(15,23,42,0.9);
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 7px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    }
+
+    button:hover {
+      background: rgba(31,41,55,0.96);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-color: rgba(34,197,94,0.4);
+      color: #022c22;
+      font-weight: 600;
+      box-shadow: 0 12px 30px rgba(22,163,74,0.45);
+    }
+
+    button.primary:hover {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      box-shadow: 0 16px 36px rgba(34,197,94,0.6);
+    }
+
+    .selection-info,
+    .status {
+      grid-column: 1 / -1;
+      font-size: 0.8rem;
+    }
+
+    .selection-info {
+      color: var(--text-muted);
+    }
+
+    .status {
+      color: var(--accent);
+    }
+
+    .status.status-error {
+      color: var(--danger);
+    }
+
+    .results-section {
+      margin-top: 22px;
+    }
+
+    .results-section h2 {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+    }
+
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .station-card {
+      border-radius: 12px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 45%),
+                  radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 40%),
+                  var(--card-bg);
+      border: 1px solid rgba(30,64,175,0.4);
+      box-shadow: var(--shadow);
+      padding: 10px 12px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .station-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid transparent;
+      background: linear-gradient(120deg, rgba(56,189,248,0.7), rgba(34,197,94,0.7)) border-box;
+      -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease-out;
+    }
+
+    .station-card:hover::before {
+      opacity: 0.9;
+    }
+
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .station-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .station-price {
+      font-weight: 700;
+      color: #bbf7d0;
+      font-feature-settings: "tnum" 1, "lnum" 1;
+    }
+
+    .station-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .station-address {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .station-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .station-meta span {
+      font-size: 0.78rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.35);
+      color: var(--text-muted);
+    }
+
+    .station-meta span:nth-child(1) {
+      border-color: rgba(56,189,248,0.7);
+      background: rgba(15,23,42,0.95);
+    }
+
+    .station-meta span:nth-child(2) {
+      border-color: rgba(34,197,94,0.7);
+      background: var(--accent-soft);
+      color: #bbf7d0;
+    }
+
+    .station-meta span:nth-child(3) {
+      border-color: rgba(234,179,8,0.7);
+    }
+
+    @media (max-width: 640px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .buttons {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .station-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .station-price {
+        margin-top: 2px;
+      }
+    }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Goedkoop tanken</h1>
-  <p class="sub">GitHub Pages frontend met live CARBU-data via Cloudflare Worker.</p>
+  <div class="page">
+    <header class="page-header">
+      <h1>Goedkoop tanken</h1>
+      <p>GitHub Pages frontend met live CARBU-data via Cloudflare Worker.</p>
+    </header>
 
-  <div class="card">
-    <div class="grid g2">
-      <div>
-        <label for="location">Locatie</label>
-        <input id="location" placeholder="Bijv. Merksem, Antwerpen" />
+    <section class="controls">
+      <div class="field">
+        <label for="locationInput">Locatie</label>
+        <input id="locationInput" type="text" placeholder="Korte Bremstraat Merksem">
       </div>
-      <div>
-        <label for="fuel">Brandstof</label>
-        <select id="fuel">
-          <option>Super 95 (E10)</option>
-          <option>Super 95 (E5)</option>
-          <option>Super 98 (E5)</option>
-          <option>Super 98 (E10)</option>
-          <option>Diesel (B7)</option>
-          <option>Diesel (B10)</option>
-          <option>Diesel (XTL / HVO)</option>
-          <option>Diesel+</option>
-          <option>LPG</option>
-          <option>CNG</option>
-          <option>Hydrogeen</option>
-          <option>LNG</option>
-          <option>AdBlue</option>
+
+      <div class="field">
+        <label for="fuelSelect">Brandstof</label>
+        <select id="fuelSelect">
+          <option value="Super 95 (E10)">Super 95 (E10)</option>
+          <option value="Diesel (B7)">Diesel (B7)</option>
+          <option value="Super 98 (E5)">Super 98 (E5)</option>
         </select>
       </div>
-    </div>
 
-    <div class="grid g3" style="margin-top:12px">
-      <div>
-        <label for="tankcard">Tankkaart</label>
-        <select id="tankcard">
-          <option value="any">Maakt niet uit</option>
-          <option value="yes">Ja</option>
-          <option value="no">Nee</option>
+      <div class="field">
+        <label for="toleranceSelect">Prijsverschil</label>
+        <select id="toleranceSelect">
+          <option value="0.01">1 cent</option>
+          <option value="0.02" selected>2 cent</option>
+          <option value="0.03">3 cent</option>
+          <option value="0.05">5 cent</option>
         </select>
       </div>
-      <div>
-        <label for="gap">Prijsverschil</label>
-        <select id="gap">
-          <option value="0">0 cent</option>
-          <option value="2">2 cent</option>
-          <option value="5">5 cent</option>
-          <option value="10">10 cent</option>
+
+      <div class="field">
+        <label for="sortSelect">Sorteren</label>
+        <select id="sortSelect">
+          <option value="price" selected>Prijs laag-hoog</option>
+          <option value="distance">Afstand kort-lang</option>
         </select>
       </div>
-      <div>
-        <label for="sort">Sorteren</label>
-        <select id="sort">
-          <option value="price">Prijs laag-hoog</option>
-          <option value="distance">Afstand laag-hoog</option>
-        </select>
+
+      <div class="buttons">
+        <button id="useLocationBtn" type="button">Gebruik mijn locatie</button>
+        <button id="searchBtn" type="button" class="primary">Zoek</button>
       </div>
-    </div>
 
-    <div class="btnrow" style="margin-top:12px">
-      <button class="btn secondary" id="geoBtn">Gebruik mijn locatie</button>
-      <button class="btn primary" id="searchBtn">Zoek</button>
-    </div>
+      <div id="selectionInfo" class="selection-info"></div>
+      <div id="status" class="status"></div>
+    </section>
 
-    <div id="meta"></div>
-    <div class="status" id="status"></div>
-    <div class="muted" style="margin-top:10px">
-      Worker-URL instellen in de code. Als de browser de locatie of fetch blokkeert, open via HTTPS.
-    </div>
+    <section class="results-section">
+      <h2>Resultaten</h2>
+      <div id="results" class="results"></div>
+    </section>
   </div>
 
-  <div class="card">
-    <div id="summary" class="muted">Nog geen resultaat.</div>
-    <div id="cards"></div>
-    <div style="overflow:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>Station</th>
-            <th>Adres</th>
-            <th>Brandstof</th>
-            <th class="right">Prijs</th>
-            <th>Tankkaart</th>
-          </tr>
-        </thead>
-        <tbody id="rows">
-          <tr><td colspan="5" class="muted">Geen data.</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+  <script>
+    // === CONFIG ===
+    const WORKER_URL = 'https://carbu-worker.bjorn-broeckx.workers.dev'; // <-- aanpassen
 
-<script>
-const WORKER_URL = "https://carbu-worker.bjorn-broeckx.workers.dev";
+    // === DOM ELEMENTS ===
+    const locationInput = document.getElementById('locationInput');
+    const fuelSelect = document.getElementById('fuelSelect');
+    const toleranceSelect = document.getElementById('toleranceSelect');
+    const sortSelect = document.getElementById('sortSelect');
+    const useLocationBtn = document.getElementById('useLocationBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const selectionInfo = document.getElementById('selectionInfo');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
 
-const el = id => document.getElementById(id);
-let loc = null;
-let items = [];
+    // === STATE ===
+    let originLat = null;
+    let originLon = null;
+    let currentStations = [];
 
-function haversine(aLat,aLon,bLat,bLon){
-  const R=6371, dLat=(bLat-aLat)*Math.PI/180, dLon=(bLon-aLon)*Math.PI/180;
-  const la1=aLat*Math.PI/180, la2=bLat*Math.PI/180;
-  const x=Math.sin(dLat/2)**2 + Math.cos(la1)*cos(la2)*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(x));
-}
-function cos(x){return Math.cos(x);}
-function fmtPrice(v){ return "€ " + v.toFixed(3).replace(".", ",") + " /L"; }
-function fmtKm(v){ return v.toFixed(2).replace(".", ",") + " km"; }
+    // === UTIL ===
+    function setStatus(msg, type = 'info') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (type === 'error' ? ' status-error' : '');
+    }
 
-async function geocode(q){
-  const r = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="+encodeURIComponent(q), {headers:{Accept:"application/json"}});
-  const j = await r.json();
-  if(!j.length) throw new Error("Locatie niet gevonden");
-  return {lat:+j[0].lat, lon:+j[0].lon, label:j[0].display_name};
-}
+    function toRad(value) {
+      return value * Math.PI / 180;
+    }
 
-async function geocodeAddress(addr) {
-  const r = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(addr), {
-    headers: { "Accept": "application/json" }
-  });
-  const j = await r.json();
-  if (!j.length) return null;
-  return { lat: +j[0].lat, lon: +j[0].lon };
-}
+    function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
-async function loadData(){
-  const region = el("location").value.trim() || "Antwerpen";
-  const fuel = el("fuel").value;
-  const tankcard = el("tankcard").value;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-  const url = `${WORKER_URL}/?region=${encodeURIComponent(region)}&fuel=${encodeURIComponent(fuel)}&tankcard=${encodeURIComponent(tankcard)}`;
-  const r = await fetch(url);
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || "Worker error");
-
-  const html = j.html || "";
-  items = parseCarbuHtmlInBrowser(html, fuel, tankcard, j.sourceUrl);
-
-  // coord + afstand voor max 20 stations
-  if (loc && items.length) {
-    const slice = items.slice(0, 20);
-    for (let i = 0; i < slice.length; i++) {
-      const it = slice[i];
-      const queryAddr = it.address || it.name;
-      if (!queryAddr) continue;
-      try {
-        const geo = await geocodeAddress(queryAddr);
-        if (geo) {
-          it.lat = geo.lat;
-          it.lon = geo.lon;
-          it.distance = haversine(loc.lat, loc.lon, geo.lat, geo.lon);
+    function addDistances(stations, lat, lon) {
+      if (lat == null || lon == null) {
+        stations.forEach(s => (s.distanceKm = null));
+        return;
+      }
+      stations.forEach(station => {
+        if (station.lat != null && station.lon != null) {
+          station.distanceKm = haversineDistanceKm(lat, lon, station.lat, station.lon);
+        } else {
+          station.distanceKm = null;
         }
-      } catch(e) {}
+      });
     }
-  }
 
-  return j;
-}
+    // === PARSER ===
+    // LET OP: selectors moeten overeenkomen met de HTML die je Worker van CARBU terugstuurt. [web:160][web:162]
+    function parseStationsFromCarbu(html, selectedFuelLabel) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const stationCards = Array.from(doc.querySelectorAll('.station')); // selector checken
+      const stations = [];
 
-// Parser alleen op tabelgedeelte
-function parseCarbuHtmlInBrowser(html, fuel, card, sourceUrl) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const text = doc.body ? doc.body.innerText.replace(/\r/g, "") : html;
-  const allLines = text.split("\n").map(s => s.trim()).filter(Boolean);
+      stationCards.forEach(card => {
+        const nameEl = card.querySelector('.station-name');
+        const addrEl = card.querySelector('.station-address');
 
-  const fuelNeedle = fuel.toLowerCase();
-  const fuelRe =
-    /(Super 95 \(E10\)|Super 95 \(E5\)|Super 98 \(E5\)|Super 98 \(E10\)|Diesel \(B7\)|Diesel \(B10\)|Diesel \(XTL \/ HVO\)|Diesel\+|LPG|CNG|Hydrogeen|LNG|AdBlue)/i;
-  const priceRe = /(\d+[.,]\d{3})\s*€\s*\/L/i;
+        const name = nameEl ? nameEl.textContent.trim() : 'Onbekend station';
+        const address = addrEl ? addrEl.textContent.trim() : '';
 
-  const tableIndex = allLines.findIndex(l => l.startsWith("StationAdresBrandstofPrijsTankkaart"));
-  const lines = tableIndex >= 0 ? allLines.slice(tableIndex + 1) : allLines;
+        const fuelRows = Array.from(card.querySelectorAll('.fuel-row'));
+        const matchingFuelRow = fuelRows.find(row => {
+          const label = row.querySelector('.fuel-label');
+          return label && label.textContent.includes(selectedFuelLabel);
+        });
 
-  const out = [];
+        if (!matchingFuelRow) return;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+        const priceEl = matchingFuelRow.querySelector('.fuel-price');
+        const priceText = priceEl ? priceEl.textContent.replace(/[^\d,.,,]/g, '') : '';
+        const price = priceText ? parseFloat(priceText.replace(',', '.')) : null;
 
-    const priceMatch = line.match(priceRe);
-    if (!priceMatch) continue;
-    if (!line.toLowerCase().includes(fuelNeedle)) continue;
+        const cardEl = matchingFuelRow.querySelector('.fuel-card');
+        const hasFuelCard = cardEl ? /ja/i.test(cardEl.textContent) : false;
 
-    const price = parseFloat(priceMatch[1].replace(",", "."));
-    const fuelMatch = line.match(fuelRe);
-    const fuelLine = fuelMatch ? fuelMatch[1] : fuel;
+        const lat = card.dataset.lat ? parseFloat(card.dataset.lat) : null;
+        const lon = card.dataset.lon ? parseFloat(card.dataset.lon) : null;
 
-    const tankcard = /Ja/.test(lines.slice(i + 1, i + 5).join(" "))
-      || /tankkaart|card|fleet|dkv|eurotrafic|shell card|total card/i.test(text);
+        stations.push({
+          name,
+          address,
+          fuel: selectedFuelLabel,
+          price,
+          hasFuelCard,
+          lat,
+          lon,
+          distanceKm: null
+        });
+      });
 
-    out.push({
-      name: "Onbekend station",
-      address: "",
-      fuel: fuelLine,
-      price,
-      tankcard,
-      date: "",
-      sourceUrl
-    });
-  }
-
-  const seen = new Set();
-  return out.filter(x => {
-    const k = `${x.fuel}|${x.price}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}
-
-function applyFilters(){
-  const tankcard = el("tankcard").value;
-  const gap = parseInt(el("gap").value,10)/100;
-  const sort = el("sort").value;
-
-  let list = items.slice();
-  if(tankcard !== "any") list = list.filter(x => tankcard === "yes" ? x.tankcard : !x.tankcard);
-
-  if(loc) list = list.map(x => ({
-    ...x,
-    distance: x.distance ?? (x.lat && x.lon ? haversine(loc.lat, loc.lon, x.lat, x.lon) : null)
-  }));
-
-  const minPrice = list.length ? Math.min(...list.map(x => x.price)) : null;
-  if(minPrice !== null) list = list.filter(x => x.price <= minPrice + gap);
-
-  list.sort((a,b)=>{
-    if(sort==="distance"){
-      const ad = a.distance ?? 999999, bd = b.distance ?? 999999;
-      return (ad-bd) || (a.price-b.price) || a.name.localeCompare(b.name);
+      return stations;
     }
-    return (a.price-b.price) || ((a.distance ?? 999999)-(b.distance ?? 999999)) || a.name.localeCompare(b.name);
-  });
 
-  return {list, minPrice};
-}
+    // === RENDER ===
+    function renderStations(stations) {
+      resultsEl.innerHTML = '';
 
-function render(){
-  const {list, minPrice} = applyFilters();
-  const fuel = el("fuel").value;
+      if (!stations.length) {
+        resultsEl.innerHTML = '<p class="selection-info">Geen resultaten gevonden.</p>';
+        return;
+      }
 
-  el("meta").innerHTML = [
-    loc ? `<span class="chip">Locatie: ${loc.label}</span>` : "",
-    `<span class="chip">Brandstof: ${fuel}</span>`,
-    `<span class="chip">Tolerantie: ${el("gap").value} cent</span>`,
-    `<span class="chip">Sortering: ${el("sort").value}</span>`
-  ].join("");
+      const sortBy = sortSelect.value;
+      const sorted = [...stations].sort((a, b) => {
+        if (sortBy === 'distance') {
+          if (a.distanceKm == null) return 1;
+          if (b.distanceKm == null) return -1;
+          return a.distanceKm - b.distanceKm;
+        }
+        if (a.price == null) return 1;
+        if (b.price == null) return -1;
+        return a.price - b.price;
+      });
 
-  el("summary").textContent = list.length
-    ? `${list.length} resultaten${minPrice !== null ? ", goedkoopste: " + fmtPrice(minPrice) : ""}`
-    : "Geen resultaten.";
+      sorted.forEach(station => {
+        const card = document.createElement('div');
+        card.className = 'station-card';
 
-  el("rows").innerHTML = list.length ? list.map(x => `
-    <tr>
-      <td><strong>${x.name || ""}</strong></td>
-      <td>${x.address || ""}</td>
-      <td>${x.fuel || ""}</td>
-      <td class="right">${fmtPrice(x.price)}</td>
-      <td>${x.tankcard ? "Ja" : "Nee"}</td>
-    </tr>
-  `).join("") : `<tr><td colspan="5" class="muted">Geen resultaten.</td></tr>`;
+        const distanceText = station.distanceKm != null
+          ? station.distanceKm.toFixed(1) + ' km'
+          : 'Onbekende afstand';
 
-  el("cards").innerHTML = list.map(x => `
-    <div class="item">
-      <div class="itemmain">
-        <div>
-          <div class="name">${x.name || "Onbekend station"}</div>
-          <div class="addr">${x.address || ""}</div>
-          <div class="small" style="margin-top:6px">
-            ${x.fuel || ""}${x.distance==null ? "" : " · " + fmtKm(x.distance)}
+        const priceText = station.price != null
+          ? '€ ' + station.price.toFixed(3) + '/L'
+          : '-';
+
+        card.innerHTML = `
+          <div class="station-header">
+            <div class="station-title">${station.name}</div>
+            <div class="station-price">${priceText}</div>
           </div>
-        </div>
-        <div class="price">${fmtPrice(x.price)}</div>
-      </div>
-      <div class="actions">
-        <a href="${x.sourceUrl}" target="_blank" rel="noopener">Meer informatie</a>
-        <a href="${x.sourceUrl}" target="_blank" rel="noopener">Station</a>
-        <a href="https://www.google.com/maps?q=${encodeURIComponent(x.address || x.name || "")}" target="_blank" rel="noopener">GPS</a>
-      </div>
-    </div>
-  `).join("");
-}
+          <div class="station-body">
+            <div class="station-address">${station.address}</div>
+            <div class="station-meta">
+              <span>${station.fuel}</span>
+              <span>${distanceText}</span>
+              <span>Tankkaart: ${station.hasFuelCard ? 'Ja' : 'Nee'}</span>
+            </div>
+          </div>
+        `;
 
-el("geoBtn").onclick = () => {
-  navigator.geolocation.getCurrentPosition(
-    p => { loc = {lat:p.coords.latitude, lon:p.coords.longitude, label:"huidige locatie"}; el("status").textContent = "Locatie ingesteld."; render(); },
-    () => { el("status").textContent = "Locatie geweigerd of niet beschikbaar."; el("status").className = "status error"; },
-    {enableHighAccuracy:true, timeout:12000, maximumAge:60000}
-  );
-};
+        resultsEl.appendChild(card);
+      });
+    }
 
-el("searchBtn").onclick = async () => {
-  try {
-    el("status").textContent = "Data laden...";
-    el("status").className = "status";
-    const q = el("location").value.trim();
-    if(q) loc = await geocode(q);
-    const j = await loadData();
-    el("status").textContent = "Live data geladen.";
-    render();
-  } catch(e) {
-    el("status").textContent = e.message;
-    el("status").className = "status error";
-  }
-};
+    // === GEOLOCATIE / GEOCODING ===
+    async function geocodeLocation(query) {
+      // hier kun je eventueel je Worker/Nominatim aanspreken om lat/lon uit adres te halen [web:35][web:158]
+      return null;
+    }
 
-["fuel","tankcard","gap","sort"].forEach(id => el(id).addEventListener("change", render));
-</script>
+    // === MAIN FLOW ===
+    async function zoekStations() {
+      const locationText = locationInput.value.trim();
+      const fuelLabel = fuelSelect.value;
+      const tolerance = parseFloat(toleranceSelect.value);
+
+      setStatus('Resultaten laden…');
+
+      if (locationText && (originLat == null || originLon == null)) {
+        const geo = await geocodeLocation(locationText);
+        if (geo) {
+          originLat = geo.lat;
+          originLon = geo.lon;
+        }
+      }
+
+      try {
+        const url = `${WORKER_URL}?fuel=${encodeURIComponent(fuelLabel)}&tolerance=${tolerance}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          throw new Error('Worker gaf een fout terug');
+        }
+        const html = await resp.text();
+
+        const stations = parseStationsFromCarbu(html, fuelLabel);
+        addDistances(stations, originLat, originLon);
+        currentStations = stations;
+
+        const cheapest = stations
+          .filter(s => s.price != null)
+          .sort((a, b) => a.price - b.price)[0];
+
+        if (cheapest) {
+          selectionInfo.textContent =
+            `Aantal resultaten: ${stations.length}, goedkoopste: € ${cheapest.price.toFixed(3)}/L.`;
+        } else {
+          selectionInfo.textContent = `Aantal resultaten: ${stations.length}.`;
+        }
+
+        renderStations(stations);
+        setStatus('Resultaten bijgewerkt.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Fout bij laden van resultaten.', 'error');
+      }
+    }
+
+    // === EVENT HANDLERS ===
+    searchBtn.addEventListener('click', () => {
+      zoekStations();
+    });
+
+    sortSelect.addEventListener('change', () => {
+      if (currentStations.length) {
+        renderStations(currentStations);
+      }
+    });
+
+    useLocationBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        setStatus('Geolocatie wordt niet ondersteund door deze browser.', 'error');
+        return;
+      }
+      setStatus('Bepalen van huidige locatie…');
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          originLat = pos.coords.latitude;
+          originLon = pos.coords.longitude;
+          setStatus('Locatie ingesteld. Zoek opnieuw om afstanden te zien.');
+        },
+        err => {
+          console.error(err);
+          setStatus('Kon huidige locatie niet ophalen.', 'error');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  </script>
 </body>
 </html>
