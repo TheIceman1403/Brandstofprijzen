@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>Goedkoop tanken</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #050816;
+      --card-bg: #0f172a;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.1);
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --radius: 10px;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+      --transition: 160ms ease-out;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: radial-gradient(circle at top, #1f2937 0, var(--bg) 40%, #020617 100%);
+      color: var(--text);
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+    .page-header h1 { margin: 0 0 4px; font-size: 1.9rem; }
+    .page-header p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+
+    .controls {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.88));
+      border: 1px solid rgba(148,163,184,0.14);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px 16px;
+      align-items: end;
+    }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.075em;
+      color: var(--text-muted);
+    }
+    input, select {
+      padding: 7px 9px;
+      border-radius: 7px;
+      border: 1px solid rgba(31,41,55,0.9);
+      background: rgba(15,23,42,0.96);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    }
+    input:focus, select:focus {
+      border-color: rgba(56,189,248,0.9);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.55);
+      background: rgba(15,23,42,1);
+    }
+
+    .buttons { display: flex; gap: 8px; align-items: center; }
+    button {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      background: rgba(15,23,42,0.9);
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 7px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    }
+    button.primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-color: rgba(34,197,94,0.4);
+      color: #022c22;
+      font-weight: 600;
+      box-shadow: 0 12px 30px rgba(22,163,74,0.45);
+    }
+    .selection-info, .status { grid-column: 1 / -1; font-size: 0.8rem; }
+    .selection-info { color: var(--text-muted); }
+    .status { color: var(--accent); }
+    .status.status-error { color: var(--danger); }
+
+    .results-section { margin-top: 22px; }
+    .results-section h2 {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+    }
+    .results { display: flex; flex-direction: column; gap: 8px; }
+
+    .station-card {
+      border-radius: 12px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 45%),
+                  radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 40%),
+                  var(--card-bg);
+      border: 1px solid rgba(30,64,175,0.4);
+      box-shadow: var(--shadow);
+      padding: 10px 12px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .station-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .station-title { font-weight: 600; font-size: 1rem; }
+    .station-price { font-weight: 700; color: #bbf7d0; }
+    .station-body { display: flex; flex-direction: column; gap: 2px; }
+    .station-address { font-size: 0.85rem; color: var(--text-muted); }
+    .station-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .station-meta span {
+      font-size: 0.78rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.35);
+      color: var(--text-muted);
+    }
+    .station-meta span:nth-child(1) {
+      border-color: rgba(56,189,248,0.7);
+      background: rgba(15,23,42,0.95);
+    }
+    .station-meta span:nth-child(2) {
+      border-color: rgba(34,197,94,0.7);
+      background: var(--accent-soft);
+      color: #bbf7d0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="page-header">
+      <h1>Goedkoop tanken</h1>
+      <p>Live CARBU-data met prijsverschil en afstand vanaf jouw opgegeven locatie.</p>
+    </header>
+
+    <section class="controls">
+      <div class="field">
+        <label for="locationInput">Locatie</label>
+        <input id="locationInput" type="text" placeholder="Gemeente (bv. Gent, Durbuy)">
+      </div>
+
+      <div class="field">
+        <label for="fuelSelect">Brandstof</label>
+        <select id="fuelSelect">
+          <option value="Super 95 (E10)">Super 95 (E10)</option>
+          <option value="Diesel (B7)">Diesel (B7)</option>
+          <option value="Super 98 (E5)">Super 98 (E5)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="toleranceSelect">Prijsverschil</label>
+        <select id="toleranceSelect">
+          <option value="0.01">1 cent</option>
+          <option value="0.02">2 cent</option>
+          <option value="0.03" selected>3 cent</option>
+          <option value="0.05">5 cent</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="sortSelect">Sorteren</label>
+        <select id="sortSelect">
+          <option value="price" selected>Prijs laag-hoog</option>
+          <option value="distance">Afstand kort-lang</option>
+        </select>
+      </div>
+
+      <div class="buttons">
+        <button id="useLocationBtn" type="button">Gebruik mijn locatie</button>
+        <button id="searchBtn" type="button" class="primary">Zoek</button>
+      </div>
+
+      <div id="selectionInfo" class="selection-info"></div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="results-section">
+      <h2>Resultaten</h2>
+      <div id="results" class="results"></div>
+    </section>
+  </div>
+
+  <script>
+    const WORKER_URL = 'https://brandstofprijzen-worker.bjorn-broeckx.workers.dev';
+    const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org/search';
+
+    const locationInput = document.getElementById('locationInput');
+    const fuelSelect = document.getElementById('fuelSelect');
+    const toleranceSelect = document.getElementById('toleranceSelect');
+    const sortSelect = document.getElementById('sortSelect');
+    const useLocationBtn = document.getElementById('useLocationBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const selectionInfo = document.getElementById('selectionInfo');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+
+    let originLat = null;
+    let originLon = null;
+    let currentStations = [];
+
+    function setStatus(msg, type = 'info') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (type === 'error' ? ' status-error' : '');
+    }
+
+    function toRad(value) { return value * Math.PI / 180; }
+
+    function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function addDistances(stations, lat, lon) {
+      if (lat == null || lon == null) {
+        stations.forEach(s => (s.distanceKm = null));
+        return;
+      }
+      stations.forEach(station => {
+        if (station.lat != null && station.lon != null) {
+          station.distanceKm = haversineDistanceKm(lat, lon, station.lat, station.lon);
+        } else {
+          station.distanceKm = null;
+        }
+      });
+    }
+
+    function sanitizeHtml(rawHtml) {
+      return rawHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+    }
+
+    async function geocode(query) {
+      const params = new URLSearchParams({
+        q: query,
+        format: 'jsonv2',
+        limit: '1',
+        addressdetails: '1'
+      });
+      const url = `${NOMINATIM_BASE}?${params.toString()}`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) throw new Error('Nominatim error ' + resp.status);
+      const data = await resp.json();
+      if (!data || !data.length) return null;
+      const item = data[0];
+      return {
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon)
+      };
+    }
+
+    async function reverseGeocode(lat, lon) {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        lat: String(lat),
+        lon: String(lon),
+        zoom: '10',
+        addressdetails: '1'
+      });
+      const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) throw new Error('Nominatim reverse error ' + resp.status);
+      const data = await resp.json();
+      const addr = data.address || {};
+      const cityLike =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.municipality ||
+        addr.hamlet ||
+        null;
+      return {
+        label: cityLike,
+        raw: data
+      };
+    }
+
+    function parseStationsFromWorkerJson(data, selectedFuelLabel) {
+      const html = sanitizeHtml(data.html || '');
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+
+      const stationCards = Array.from(
+        doc.querySelectorAll('.stationItem.panel.panel-default')
+      );
+
+      const stations = [];
+
+      stationCards.forEach(card => {
+        const name =
+          card.getAttribute('data-name') ||
+          (card.querySelector('[itemprop="name"]')?.textContent.trim()) ||
+          'Onbekend station';
+
+        let addressHtml = card.getAttribute('data-address');
+        if (!addressHtml) {
+          const addrEl = card.querySelector('[id^="stationAddress_"]');
+          addressHtml = addrEl ? addrEl.innerHTML : '';
+        }
+        const address = addressHtml
+          ? addressHtml.replace(/<br\s*\/?>/gi, ', ').replace(/\s+/g, ' ').trim()
+          : '';
+
+        const fuelName =
+          card.getAttribute('data-fuelname') ||
+          selectedFuelLabel;
+
+        const priceAttr = card.getAttribute('data-price');
+        let price = priceAttr ? parseFloat(priceAttr) : null;
+        if (!price) {
+          const priceSpan = card.querySelector('[id^="price_"] span[style*="font-weight:bold"]');
+          if (priceSpan) {
+            const priceText = priceSpan.textContent.replace(/[^\d,]/g, '');
+            if (priceText) price = parseFloat(priceText.replace(',', '.'));
+          }
+        }
+
+        const latAttr = card.getAttribute('data-lat');
+        const lngAttr = card.getAttribute('data-lng');
+        const lat = latAttr ? parseFloat(latAttr) : null;
+        const lon = lngAttr ? parseFloat(lngAttr) : null;
+
+        stations.push({
+          name,
+          address,
+          fuel: fuelName || selectedFuelLabel,
+          price,
+          lat,
+          lon,
+          distanceKm: null
+        });
+      });
+
+      return stations;
+    }
+
+    function renderStations(stations) {
+      resultsEl.innerHTML = '';
+
+      if (!stations.length) {
+        resultsEl.innerHTML = '<p class="selection-info">Geen resultaten gevonden.</p>';
+        return;
+      }
+
+      const sortBy = sortSelect.value;
+      const sorted = [...stations].sort((a, b) => {
+        if (sortBy === 'distance') {
+          if (a.distanceKm == null) return 1;
+          if (b.distanceKm == null) return -1;
+          return a.distanceKm - b.distanceKm;
+        }
+        if (a.price == null) return 1;
+        if (b.price == null) return -1;
+        return a.price - b.price;
+      });
+
+      sorted.forEach(station => {
+        const card = document.createElement('div');
+        card.className = 'station-card';
+
+        const distanceText = station.distanceKm != null
+          ? station.distanceKm.toFixed(1) + ' km'
+          : 'Onbekende afstand';
+
+        const priceText = station.price != null
+          ? '€ ' + station.price.toFixed(3) + '/L'
+          : '-';
+
+        card.innerHTML = `
+          <div class="station-header">
+            <div class="station-title">${station.name}</div>
+            <div class="station-price">${priceText}</div>
+          </div>
+          <div class="station-body">
+            <div class="station-address">${station.address}</div>
+            <div class="station-meta">
+              <span>${station.fuel}</span>
+              <span>${distanceText}</span>
+            </div>
+          </div>
+        `;
+
+        resultsEl.appendChild(card);
+      });
+    }
+
+    async function geocodeStationsIfNeeded(stations) {
+      for (const station of stations) {
+        if (station.lat != null && station.lon != null) continue;
+        if (!station.address && !station.name) continue;
+
+        const q = station.address || station.name;
+        try {
+          const geo = await geocode(q);
+          if (geo) {
+            station.lat = geo.lat;
+            station.lon = geo.lon;
+          }
+          await new Promise(r => setTimeout(r, 500));
+        } catch (e) {
+          console.warn('Geocoding station faalde voor', q, e);
+        }
+      }
+    }
+
+    async function zoekStations() {
+      const locationText = locationInput.value.trim();
+      const fuelLabel = fuelSelect.value;
+      const tolerance = parseFloat(toleranceSelect.value);
+
+      // originLat/-Lon NIET resetten; die kunnen al van GPS komen
+
+      if (!locationText && originLat == null && originLon == null) {
+        setStatus('Geef een gemeente in of gebruik je locatie.', 'error');
+        return;
+      }
+
+      if (locationText) {
+        setStatus('Locatie bepalen…');
+        try {
+          const geo = await geocode(locationText + ', België');
+          if (geo) {
+            originLat = geo.lat;
+            originLon = geo.lon;
+          } else {
+            setStatus('Kon opgegeven locatie niet geocoden. Resultaten zonder afstanden.', 'error');
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus('Fout bij geocoden van locatie.', 'error');
+        }
+      }
+
+      setStatus('Resultaten laden…');
+
+      try {
+        const regionParam = locationText || 'Antwerpen';
+
+        const url =
+          `${WORKER_URL}?fuel=${encodeURIComponent(fuelLabel)}` +
+          `&region=${encodeURIComponent(regionParam)}` +
+          `&tolerance=${tolerance}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Worker gaf een fout terug');
+
+        const data = await resp.json();
+        if (!data.ok) throw new Error('Worker-resultaat is niet ok');
+
+        let stations = parseStationsFromWorkerJson(data, fuelLabel);
+
+        await geocodeStationsIfNeeded(stations);
+
+        const prices = stations
+          .map(s => s.price)
+          .filter(p => typeof p === 'number' && !Number.isNaN(p));
+
+        const minPrice = prices.length ? Math.min(...prices) : null;
+
+        let filteredStations = stations;
+        if (minPrice != null && !Number.isNaN(tolerance)) {
+          filteredStations = stations.filter(s =>
+            typeof s.price === 'number' &&
+            s.price <= minPrice + tolerance
+          );
+        }
+
+        addDistances(filteredStations, originLat, originLon);
+        currentStations = filteredStations;
+
+        const cheapest = filteredStations
+          .filter(s => s.price != null)
+          .sort((a, b) => a.price - b.price)[0];
+
+        if (cheapest) {
+          selectionInfo.textContent =
+            `Aantal resultaten: ${filteredStations.length}, goedkoopste: € ${cheapest.price.toFixed(3)}/L.`;
+        } else {
+          selectionInfo.textContent = `Aantal resultaten: ${filteredStations.length}.`;
+        }
+
+        renderStations(filteredStations);
+        setStatus('Resultaten bijgewerkt.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Fout bij laden van resultaten.', 'error');
+      }
+    }
+
+    sortSelect.addEventListener('change', () => {
+      if (currentStations.length) renderStations(currentStations);
+    });
+
+    searchBtn.addEventListener('click', () => {
+      zoekStations();
+    });
+
+    useLocationBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        setStatus('Geolocatie wordt niet ondersteund door deze browser.', 'error');
+        return;
+      }
+      setStatus('Bepalen van huidige locatie…');
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          originLat = pos.coords.latitude;
+          originLon = pos.coords.longitude;
+
+          try {
+            const rev = await reverseGeocode(originLat, originLon);
+            if (rev.label) {
+              locationInput.value = rev.label;
+              setStatus(`Locatie ingesteld: ${rev.label}. Klik op Zoek om prijzen te laden.`);
+            } else {
+              setStatus('Locatie ingesteld, maar kon geen gemeente bepalen. Vul eventueel zelf een gemeente in.', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            setStatus('Locatie ingesteld, maar reverse geocoding faalde. Vul eventueel zelf een gemeente in.', 'error');
+          }
+        },
+        err => {
+          console.error(err);
+          setStatus('Kon huidige locatie niet ophalen.', 'error');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+  </script>
+</body>
+</html>
