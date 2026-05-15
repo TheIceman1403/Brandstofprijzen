@@ -167,7 +167,6 @@
           <option value="0.02">2 cent</option>
           <option value="0.03" selected>3 cent</option>
           <option value="0.05">5 cent</option>
-			<option value="0.10">10 cent</option>
         </select>
       </div>
 
@@ -265,6 +264,32 @@
       return {
         lat: parseFloat(item.lat),
         lon: parseFloat(item.lon)
+      };
+    }
+
+    async function reverseGeocode(lat, lon) {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        lat: String(lat),
+        lon: String(lon),
+        zoom: '10',
+        addressdetails: '1'
+      });
+      const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!resp.ok) throw new Error('Nominatim reverse error ' + resp.status);
+      const data = await resp.json();
+      const addr = data.address || {};
+      const cityLike =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.municipality ||
+        addr.hamlet ||
+        null;
+      return {
+        label: cityLike,
+        raw: data
       };
     }
 
@@ -400,33 +425,34 @@
       const fuelLabel = fuelSelect.value;
       const tolerance = parseFloat(toleranceSelect.value);
 
-      originLat = null;
-      originLon = null;
+      // originLat/-Lon NIET resetten; die kunnen al van GPS komen
 
-      if (!locationText) {
-        setStatus('Geef een gemeente in (bv. Gent, Durbuy…).', 'error');
+      if (!locationText && originLat == null && originLon == null) {
+        setStatus('Geef een gemeente in of gebruik je locatie.', 'error');
         return;
       }
 
-      setStatus('Locatie bepalen…');
-
-      try {
-        const geo = await geocode(locationText + ', België');
-        if (geo) {
-          originLat = geo.lat;
-          originLon = geo.lon;
-        } else {
-          setStatus('Kon opgegeven locatie niet geocoden. Resultaten zonder afstanden.', 'error');
+      if (locationText) {
+        setStatus('Locatie bepalen…');
+        try {
+          const geo = await geocode(locationText + ', België');
+          if (geo) {
+            originLat = geo.lat;
+            originLon = geo.lon;
+          } else {
+            setStatus('Kon opgegeven locatie niet geocoden. Resultaten zonder afstanden.', 'error');
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus('Fout bij geocoden van locatie.', 'error');
         }
-      } catch (e) {
-        console.error(e);
-        setStatus('Fout bij geocoden van locatie.', 'error');
       }
 
       setStatus('Resultaten laden…');
 
       try {
-        const regionParam = locationText;
+        const regionParam = locationText || 'Antwerpen';
+
         const url =
           `${WORKER_URL}?fuel=${encodeURIComponent(fuelLabel)}` +
           `&region=${encodeURIComponent(regionParam)}` +
@@ -492,11 +518,22 @@
       }
       setStatus('Bepalen van huidige locatie…');
       navigator.geolocation.getCurrentPosition(
-        pos => {
+        async pos => {
           originLat = pos.coords.latitude;
           originLon = pos.coords.longitude;
-          locationInput.value = '';
-          setStatus('Locatie ingesteld. Klik op Zoek om prijzen te laden.');
+
+          try {
+            const rev = await reverseGeocode(originLat, originLon);
+            if (rev.label) {
+              locationInput.value = rev.label;
+              setStatus(`Locatie ingesteld: ${rev.label}. Klik op Zoek om prijzen te laden.`);
+            } else {
+              setStatus('Locatie ingesteld, maar kon geen gemeente bepalen. Vul eventueel zelf een gemeente in.', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            setStatus('Locatie ingesteld, maar reverse geocoding faalde. Vul eventueel zelf een gemeente in.', 'error');
+          }
         },
         err => {
           console.error(err);
